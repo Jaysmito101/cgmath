@@ -873,66 +873,52 @@ impl<S: BaseFloat> SquareMatrix for Matrix4<S> {
         Vector4::new(self[0][0], self[1][1], self[2][2], self[3][3])
     }
 
-    // The new implementation results in negative optimization when used
-    // without SIMD. so we opt them in with configuration.
-    // A better option would be using specialization. But currently somewhat
-    // specialization is too buggy, and it won't apply here. I'm getting
-    // weird error msgs. Help wanted.
-    #[cfg(not(feature = "simd"))]
     fn invert(&self) -> Option<Matrix4<S>> {
+        #![inline(always)]
         let det = self.determinant();
         if det == S::zero() {
             None
         } else {
             let inv_det = S::one() / det;
-            let t = self.transpose();
-            let cf = |i, j| {
-                let mat = match i {
-                    0 => {
-                        Matrix3::from_cols(t.y.truncate_n(j), t.z.truncate_n(j), t.w.truncate_n(j))
-                    }
-                    1 => {
-                        Matrix3::from_cols(t.x.truncate_n(j), t.z.truncate_n(j), t.w.truncate_n(j))
-                    }
-                    2 => {
-                        Matrix3::from_cols(t.x.truncate_n(j), t.y.truncate_n(j), t.w.truncate_n(j))
-                    }
-                    3 => {
-                        Matrix3::from_cols(t.x.truncate_n(j), t.y.truncate_n(j), t.z.truncate_n(j))
-                    }
-                    _ => panic!("out of range"),
-                };
-                let sign = if (i + j) & 1 == 1 {
-                    -S::one()
-                } else {
-                    S::one()
-                };
-                mat.determinant() * sign * inv_det
+            // Lane j holds the entries left in the row after omitting column j.
+            type PackedRow<S> = (Vector4<S>, Vector4<S>, Vector4<S>);
+            let pack = |r: Vector4<S>| {
+                (
+                    Vector4::new(r.y, r.x, r.x, r.x),
+                    Vector4::new(r.z, r.z, r.y, r.y),
+                    Vector4::new(r.w, r.w, r.w, r.z),
+                )
             };
-
-            #[cfg_attr(rustfmt, rustfmt_skip)]
-            Some(Matrix4::new(
-                cf(0, 0), cf(0, 1), cf(0, 2), cf(0, 3),
-                cf(1, 0), cf(1, 1), cf(1, 2), cf(1, 3),
-                cf(2, 0), cf(2, 1), cf(2, 2), cf(2, 3),
-                cf(3, 0), cf(3, 1), cf(3, 2), cf(3, 3),
+            let r = self.transpose();
+            let (x, y, z, w) = (pack(r.x), pack(r.y), pack(r.z), pack(r.w));
+            let minor = |a: PackedRow<S>, b: PackedRow<S>| {
+                a.1.mul_element_wise(b.2) - b.1.mul_element_wise(a.2)
+            };
+            let one = S::one();
+            let negative_one = -one;
+            let even_signs = Vector4::new(one, negative_one, one, negative_one);
+            let odd_signs = Vector4::new(negative_one, one, negative_one, one);
+            let zw = minor(z, w);
+            let yw = minor(y, w);
+            let yz = minor(y, z);
+            let xw = minor(x, w);
+            let xz = minor(x, z);
+            let xy = minor(x, y);
+            // Each omitted row gives one column of the adjugate.
+            let col0 =
+                y.0.mul_element_wise(zw) - z.0.mul_element_wise(yw) + w.0.mul_element_wise(yz);
+            let col1 =
+                x.0.mul_element_wise(zw) - z.0.mul_element_wise(xw) + w.0.mul_element_wise(xz);
+            let col2 =
+                x.0.mul_element_wise(yw) - y.0.mul_element_wise(xw) + w.0.mul_element_wise(xy);
+            let col3 =
+                x.0.mul_element_wise(yz) - y.0.mul_element_wise(xz) + z.0.mul_element_wise(xy);
+            Some(Matrix4::from_cols(
+                col0.mul_element_wise(even_signs) * inv_det,
+                col1.mul_element_wise(odd_signs) * inv_det,
+                col2.mul_element_wise(even_signs) * inv_det,
+                col3.mul_element_wise(odd_signs) * inv_det,
             ))
-        }
-    }
-    #[cfg(feature = "simd")]
-    fn invert(&self) -> Option<Matrix4<S>> {
-        let tmp0 = unsafe { det_sub_proc_unsafe(self, 1, 2, 3) };
-        let det = tmp0.dot(Vector4::new(self[0][0], self[1][0], self[2][0], self[3][0]));
-
-        if det == S::zero() {
-            None
-        } else {
-            let inv_det = S::one() / det;
-            let tmp0 = tmp0 * inv_det;
-            let tmp1 = unsafe { det_sub_proc_unsafe(self, 0, 3, 2) * inv_det };
-            let tmp2 = unsafe { det_sub_proc_unsafe(self, 0, 1, 3) * inv_det };
-            let tmp3 = unsafe { det_sub_proc_unsafe(self, 0, 2, 1) * inv_det };
-            Some(Matrix4::from_cols(tmp0, tmp1, tmp2, tmp3))
         }
     }
 
@@ -1332,15 +1318,21 @@ macro_rules! impl_mv_operator {
 
 impl_mv_operator!(Matrix2, Vector2 { x: 0, y: 1 });
 impl_mv_operator!(Matrix3, Vector3 { x: 0, y: 1, z: 2 });
-#[cfg(not(feature = "simd"))]
-#[cfg_attr(rustfmt, rustfmt_skip)]
-impl_mv_operator!(Matrix4, Vector4 { x: 0, y: 1, z: 2, w: 3 });
 
-#[cfg(feature = "simd")]
 impl_operator!(<S: BaseFloat> Mul<Vector4<S> > for Matrix4<S> {
-    fn mul(matrix, vector) -> Vector4<S> {
-        matrix[0] * vector[0] + matrix[1] * vector[1] + matrix[2] * vector[2] + matrix[3] * vector[3]
-    }
+    fn mul(matrix, vector) -> Vector4<S> {{
+        #[cfg(feature = "simd")]
+        if let Some(result) = ::simd::mul_matrix4_vector4(&matrix, &vector) {
+            return result;
+        }
+
+        Vector4::new(
+            matrix.row(0).dot(vector.clone()),
+            matrix.row(1).dot(vector.clone()),
+            matrix.row(2).dot(vector.clone()),
+            matrix.row(3).dot(vector.clone()),
+        )
+    }}
 });
 
 impl_operator!(<S: BaseFloat> Mul<Matrix2<S> > for Matrix2<S> {

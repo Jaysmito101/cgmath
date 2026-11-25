@@ -17,12 +17,6 @@
 
 #![macro_use]
 
-#[cfg(feature = "simd")]
-macro_rules! default_fn {
-    { $($tt:tt)* } => { default fn $( $tt )* };
-}
-
-#[cfg(not(feature = "simd"))]
 macro_rules! default_fn {
     { $($tt:tt)* } => {
         #[inline]
@@ -254,7 +248,7 @@ macro_rules! impl_index_operators {
 }
 
 /// Generates a binary operator implementation for the permutations of by-ref and by-val, for simd
-#[cfg(feature = "simd")]
+#[cfg(any())] // Used only by the archived SIMD modules.
 macro_rules! impl_operator_simd {
     // When it is an unary operator
     ([$Simd:ident]; $Op:ident for $Lhs:ty {

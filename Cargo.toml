@@ -17,20 +17,30 @@ keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 [lib]
 name = "cgmath"
 
+[[bench]]
+name = "rgba_finiteness"
+harness = false
+
 [features]
+simd = ["dep:try-specialize", "dep:wide"]
 unstable = []
 swizzle = []
+
+[[bench]]
+name = "image_warp"
+harness = false
 
 [dependencies]
 approx = "0.5"
 mint = { version = "0.5.8", optional = true }
 num-traits = "0.2"
+typeid = "1.0"
 # small_rng used only for benchmarks
 rand = { version = "0.8", features = ["small_rng"], optional = true }
 serde = { version = "1.0", features = ["serde_derive"], optional = true }
-# works only in rust toolchain up to 1.32, disabled indefinitely
-#simd = { version = "0.2", optional = true }
 bytemuck = { version = "1.0", optional = true }
+try-specialize = { version = "0.1.2", default-features = false, optional = true }
+wide = { version = "1.7.1", optional = true }
 
 [target.'cfg(all(target_arch = "x86_64", target_feature = "sse"))'.dependencies]
 try-specialize = { version = "0.1.2", default-features = false }
@@ -40,4 +50,8 @@ serde_json = "1.0"
 
 [[bench]]
 name = "image_transpose"
+harness = false
+
+[[bench]]
+name = "simd"
 harness = false

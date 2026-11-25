@@ -88,6 +88,71 @@ fn test_inverse_vector() {
 }
 
 #[test]
+fn matrix4_inverse_preserves_cofactor_arithmetic() {
+    fn reference<S: BaseFloat>(matrix: Matrix4<S>) -> Option<Matrix4<S>> {
+        let determinant = matrix.determinant();
+        if determinant == S::zero() {
+            return None;
+        }
+        let inverse_determinant = S::one() / determinant;
+        let r = matrix.transpose();
+        let rows = [
+            (r.y, r.z, r.w),
+            (r.x, r.z, r.w),
+            (r.x, r.y, r.w),
+            (r.x, r.y, r.z),
+        ];
+        Some(Matrix4::from(std::array::from_fn(|i| {
+            let (a, b, c) = rows[i];
+            std::array::from_fn(|j| {
+                let sign = [S::one(), -S::one()][(i + j) % 2];
+                let j = j as isize;
+                let minor = Matrix3::from_cols(a.truncate_n(j), b.truncate_n(j), c.truncate_n(j));
+                minor.determinant() * sign * inverse_determinant
+            })
+        })))
+    }
+
+    macro_rules! check {
+        ($scalar:ty) => {{
+            let dense = (0..128).map(|i| {
+                Matrix4::from(std::array::from_fn(|col| {
+                    std::array::from_fn(|row| {
+                        let n = (i * 16 + col * 4 + row + 1) as i64;
+                        ((n * n * 1237 % 4999) as $scalar - 2500.0) / 301.0
+                    })
+                }))
+            });
+            let special = [
+                0.0,
+                -0.0,
+                <$scalar>::MIN_POSITIVE,
+                <$scalar>::INFINITY,
+                <$scalar>::NAN,
+            ];
+            let diagonal = special
+                .iter()
+                .map(|&x| Matrix4::from_nonuniform_scale(x, -2.0, 1.0));
+            for matrix in dense.chain(diagonal).chain(std::iter::once(Matrix4::one())) {
+                match (matrix.inverse_transform(), reference(matrix)) {
+                    (Some(actual), Some(expected)) => {
+                        let actual: [[$scalar; 4]; 4] = actual.into();
+                        let expected: [[$scalar; 4]; 4] = expected.into();
+                        for (&a, &b) in actual.iter().flatten().zip(expected.iter().flatten()) {
+                            assert!(a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()));
+                        }
+                    }
+                    (None, None) => {}
+                    pair => panic!("inverse results disagree for {:?}: {:?}", matrix, pair),
+                }
+            }
+        }};
+    }
+    check!(f32);
+    check!(f64);
+}
+
+#[test]
 #[allow(deprecated)]
 fn test_look_at() {
     let eye = Point3::new(0.0f64, 0.0, -5.0);
