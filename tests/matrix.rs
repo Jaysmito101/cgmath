@@ -1019,6 +1019,31 @@ pub mod matrix4 {
     }
 
     #[test]
+    fn test_transpose_self_f32_preserves_bits() {
+        #[repr(C, align(16))]
+        struct Tile {
+            prefix: f32,
+            matrix: Matrix4<f32>,
+        }
+
+        let bits = [
+            [0x0000_0000, 0x8000_0000, 0x7fc0_0001, 0x7f80_0001],
+            [0x7f80_0000, 0xff80_0000, 0x0000_0001, 0x8000_0001],
+            [0x3f80_0000, 0x4000_0000, 0x4040_0000, 0x4080_0000],
+            [0xbf80_0000, 0xc000_0000, 0xc040_0000, 0xc080_0000],
+        ];
+        let mut tile = Tile {
+            prefix: 0.0,
+            matrix: Matrix4::from(bits.map(|column| column.map(f32::from_bits))),
+        };
+
+        tile.matrix.transpose_self();
+        let actual: [[f32; 4]; 4] = tile.matrix.into();
+        let expected = std::array::from_fn(|col| std::array::from_fn(|row| bits[row][col]));
+        assert_eq!(actual.map(|column| column.map(f32::to_bits)), expected);
+    }
+
+    #[test]
     fn test_invert() {
         assert!(Matrix4::<f64>::identity().invert().unwrap().is_identity());
 

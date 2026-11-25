@@ -841,7 +841,20 @@ impl<S: BaseFloat> SquareMatrix for Matrix4<S> {
         )
     }
 
+    #[inline]
     fn transpose_self(&mut self) {
+        #[cfg(all(target_arch = "x86_64", target_feature = "sse"))]
+        {
+            extern crate try_specialize;
+
+            let f32_columns =
+                try_specialize::Specialization::<[[S; 4]; 4], [[f32; 4]; 4]>::try_new();
+            if let Some(f32_columns) = f32_columns {
+                transpose_f32_columns(f32_columns.specialize_mut(self.as_mut()));
+                return;
+            }
+        }
+
         self.swap_elements((0, 1), (1, 0));
         self.swap_elements((0, 2), (2, 0));
         self.swap_elements((0, 3), (3, 0));
@@ -1729,6 +1742,26 @@ where
             z: rng.gen(),
             w: rng.gen(),
         }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", target_feature = "sse"))]
+#[inline]
+fn transpose_f32_columns(columns: &mut [[f32; 4]; 4]) {
+    use std::arch::x86_64::{_mm_loadu_ps, _mm_storeu_ps, _MM_TRANSPOSE4_PS};
+
+    // Each pointer covers one full column. The unaligned intrinsics require no
+    // alignment beyond that of the array, and SSE is enabled for this target.
+    unsafe {
+        let mut x = _mm_loadu_ps(columns[0].as_ptr());
+        let mut y = _mm_loadu_ps(columns[1].as_ptr());
+        let mut z = _mm_loadu_ps(columns[2].as_ptr());
+        let mut w = _mm_loadu_ps(columns[3].as_ptr());
+        _MM_TRANSPOSE4_PS(&mut x, &mut y, &mut z, &mut w);
+        _mm_storeu_ps(columns[0].as_mut_ptr(), x);
+        _mm_storeu_ps(columns[1].as_mut_ptr(), y);
+        _mm_storeu_ps(columns[2].as_mut_ptr(), z);
+        _mm_storeu_ps(columns[3].as_mut_ptr(), w);
     }
 }
 
