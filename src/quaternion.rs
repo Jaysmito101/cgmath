@@ -35,6 +35,11 @@ use quaternion;
 use rotation::{Basis3, Rotation, Rotation3};
 use vector::Vector3;
 
+#[cfg(feature = "simd")]
+use try_specialize::Specialization;
+#[cfg(feature = "simd")]
+use wide::f32x4;
+
 #[cfg(feature = "mint")]
 use mint;
 
@@ -333,15 +338,35 @@ impl_assignment_operator!(<S: BaseFloat> SubAssign<Quaternion<S> > for Quaternio
 });
 
 impl_operator!(<S: BaseFloat> Mul<Quaternion<S> > for Quaternion<S> {
-    fn mul(lhs, rhs) -> Quaternion<S> {
+    fn mul(lhs, rhs) -> Quaternion<S> {{
+        #[cfg(feature = "simd")]
+        if let Some(lanes) = Specialization::<[S; 4], [f32; 4]>::try_new() {
+            let lhs = lanes.specialize(*lhs.as_ref());
+            let rhs = lanes.specialize(*rhs.as_ref());
+            return lanes.rev().specialize(mul_quaternion_f32(lhs, rhs)).into();
+        }
+
         Quaternion::new(
             lhs.s * rhs.s - lhs.v.x * rhs.v.x - lhs.v.y * rhs.v.y - lhs.v.z * rhs.v.z,
             lhs.s * rhs.v.x + lhs.v.x * rhs.s + lhs.v.y * rhs.v.z - lhs.v.z * rhs.v.y,
             lhs.s * rhs.v.y + lhs.v.y * rhs.s + lhs.v.z * rhs.v.x - lhs.v.x * rhs.v.z,
             lhs.s * rhs.v.z + lhs.v.z * rhs.s + lhs.v.x * rhs.v.y - lhs.v.y * rhs.v.x,
         )
-    }
+    }}
 });
+
+#[cfg(feature = "simd")]
+#[inline]
+fn mul_quaternion_f32([x, y, z, s]: [f32; 4], [rx, ry, rz, rs]: [f32; 4]) -> [f32; 4] {
+    // Compute x, y, z and s in parallel, with the scalar formula's left-associated sum.
+    // The second and third terms are subtracted only in the scalar lane.
+    let scalar_sign = f32x4::new([0.0, 0.0, 0.0, -0.0]);
+    let first = f32x4::splat(s) * f32x4::new([rx, ry, rz, rs]);
+    let second = (f32x4::new([x, y, z, x]) * f32x4::new([rs, rs, rs, rx])) ^ scalar_sign;
+    let third = (f32x4::new([y, z, x, y]) * f32x4::new([rz, rx, ry, ry])) ^ scalar_sign;
+    let fourth = f32x4::new([z, x, y, z]) * f32x4::new([ry, rz, rx, rz]);
+    (first + second + third - fourth).to_array()
+}
 
 macro_rules! impl_scalar_mul {
     ($S:ident) => {

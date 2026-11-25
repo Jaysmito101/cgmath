@@ -54,6 +54,53 @@ mod operators {
     }
 
     #[test]
+    fn test_quaternion_product_f32_matches_scalar_order() {
+        let values = [
+            0.0,
+            -0.0,
+            f32::from_bits(1),
+            -3.25,
+            1.0,
+            -1.0,
+            16_777_216.0,
+            f32::MAX,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::NAN,
+        ];
+        let value = |i| values[i % values.len()];
+        let mut inputs: Vec<_> = (0..values.len())
+            .map(|i| Quaternion::new(value(i), value(i + 1), value(i + 2), value(i + 4)))
+            .collect();
+        for signs in 0u32..16 {
+            let zero = |lane| f32::from_bits(((signs >> lane) & 1u32) << 31);
+            inputs.push(Quaternion::new(zero(0), zero(1), zero(2), zero(3)));
+        }
+        for &lhs in &inputs {
+            for &rhs in &inputs {
+                let [x, y, z, s]: [f32; 4] = lhs.into();
+                let [rx, ry, rz, rs]: [f32; 4] = rhs.into();
+                let expected = [
+                    s * rx + x * rs + y * rz - z * ry,
+                    s * ry + y * rs + z * rx - x * rz,
+                    s * rz + z * rs + x * ry - y * rx,
+                    s * rs - x * rx - y * ry - z * rz,
+                ];
+                for product in [lhs * rhs, &lhs * rhs, lhs * &rhs, &lhs * &rhs] {
+                    let actual: [f32; 4] = product.into();
+                    for (actual, expected) in actual.iter().zip(expected.iter()) {
+                        if expected.is_nan() {
+                            assert!(actual.is_nan());
+                        } else {
+                            assert_eq!(actual.to_bits(), expected.to_bits());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_div() {
         impl_test_div!(
             2.0f32,
