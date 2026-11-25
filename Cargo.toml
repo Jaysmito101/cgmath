@@ -22,6 +22,10 @@ simd = ["dep:try-specialize", "dep:wide"]
 unstable = []
 swizzle = []
 
+[[bench]]
+name = "image_warp"
+harness = false
+
 [dependencies]
 approx = "0.5"
 mint = { version = "0.5.8", optional = true }

@@ -861,42 +861,50 @@ impl<S: BaseFloat> SquareMatrix for Matrix4<S> {
     }
 
     fn invert(&self) -> Option<Matrix4<S>> {
+        #![inline(always)]
         let det = self.determinant();
         if det == S::zero() {
             None
         } else {
             let inv_det = S::one() / det;
-            let t = self.transpose();
-            let cf = |i, j| {
-                let mat = match i {
-                    0 => {
-                        Matrix3::from_cols(t.y.truncate_n(j), t.z.truncate_n(j), t.w.truncate_n(j))
-                    }
-                    1 => {
-                        Matrix3::from_cols(t.x.truncate_n(j), t.z.truncate_n(j), t.w.truncate_n(j))
-                    }
-                    2 => {
-                        Matrix3::from_cols(t.x.truncate_n(j), t.y.truncate_n(j), t.w.truncate_n(j))
-                    }
-                    3 => {
-                        Matrix3::from_cols(t.x.truncate_n(j), t.y.truncate_n(j), t.z.truncate_n(j))
-                    }
-                    _ => panic!("out of range"),
-                };
-                let sign = if (i + j) & 1 == 1 {
-                    -S::one()
-                } else {
-                    S::one()
-                };
-                mat.determinant() * sign * inv_det
+            // Lane j holds the entries left in the row after omitting column j.
+            type PackedRow<S> = (Vector4<S>, Vector4<S>, Vector4<S>);
+            let pack = |r: Vector4<S>| {
+                (
+                    Vector4::new(r.y, r.x, r.x, r.x),
+                    Vector4::new(r.z, r.z, r.y, r.y),
+                    Vector4::new(r.w, r.w, r.w, r.z),
+                )
             };
-
-            #[cfg_attr(rustfmt, rustfmt_skip)]
-            Some(Matrix4::new(
-                cf(0, 0), cf(0, 1), cf(0, 2), cf(0, 3),
-                cf(1, 0), cf(1, 1), cf(1, 2), cf(1, 3),
-                cf(2, 0), cf(2, 1), cf(2, 2), cf(2, 3),
-                cf(3, 0), cf(3, 1), cf(3, 2), cf(3, 3),
+            let r = self.transpose();
+            let (x, y, z, w) = (pack(r.x), pack(r.y), pack(r.z), pack(r.w));
+            let minor = |a: PackedRow<S>, b: PackedRow<S>| {
+                a.1.mul_element_wise(b.2) - b.1.mul_element_wise(a.2)
+            };
+            let one = S::one();
+            let negative_one = -one;
+            let even_signs = Vector4::new(one, negative_one, one, negative_one);
+            let odd_signs = Vector4::new(negative_one, one, negative_one, one);
+            let zw = minor(z, w);
+            let yw = minor(y, w);
+            let yz = minor(y, z);
+            let xw = minor(x, w);
+            let xz = minor(x, z);
+            let xy = minor(x, y);
+            // Each omitted row gives one column of the adjugate.
+            let col0 =
+                y.0.mul_element_wise(zw) - z.0.mul_element_wise(yw) + w.0.mul_element_wise(yz);
+            let col1 =
+                x.0.mul_element_wise(zw) - z.0.mul_element_wise(xw) + w.0.mul_element_wise(xz);
+            let col2 =
+                x.0.mul_element_wise(yw) - y.0.mul_element_wise(xw) + w.0.mul_element_wise(xy);
+            let col3 =
+                x.0.mul_element_wise(yz) - y.0.mul_element_wise(xz) + z.0.mul_element_wise(xy);
+            Some(Matrix4::from_cols(
+                col0.mul_element_wise(even_signs) * inv_det,
+                col1.mul_element_wise(odd_signs) * inv_det,
+                col2.mul_element_wise(even_signs) * inv_det,
+                col3.mul_element_wise(odd_signs) * inv_det,
             ))
         }
     }
