@@ -21,6 +21,49 @@ use std::f64;
 use std::iter;
 
 #[test]
+fn rgba_cast_to_bytes_matches_channel_casts() {
+    use cgmath::num_traits::ToPrimitive;
+
+    let check = |pixel: Vector4<f32>| {
+        let expected = || {
+            Some(vec4(
+                pixel.x.to_u8()?,
+                pixel.y.to_u8()?,
+                pixel.z.to_u8()?,
+                pixel.w.to_u8()?,
+            ))
+        };
+        assert_eq!(pixel.cast::<u8>(), expected(), "{:?}", pixel);
+    };
+
+    for &value in &[
+        f32::NEG_INFINITY,
+        -1.0,
+        f32::from_bits((-1.0f32).to_bits() - 1),
+        -0.0,
+        0.0,
+        f32::from_bits(1),
+        0.999,
+        255.0,
+        f32::from_bits(256.0f32.to_bits() - 1),
+        256.0,
+        f32::INFINITY,
+        f32::NAN,
+    ] {
+        for lane in 0..4 {
+            let mut pixel = vec4(1.25, 63.5, 128.75, 254.125);
+            pixel[lane] = value;
+            check(pixel);
+        }
+    }
+
+    for value in 0..256 {
+        let value = value as f32;
+        check(vec4(value, 255.75 - value, value + 0.25, value + 0.5));
+    }
+}
+
+#[test]
 fn test_constructor() {
     assert_eq!(vec1(1f32), Vector1::new(1f32));
     assert_eq!(vec2(1f32, 2f32), Vector2::new(1f32, 2f32));

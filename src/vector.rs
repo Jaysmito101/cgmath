@@ -13,6 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+extern crate try_specialize;
+
 use num_traits::{Bounded, Float, NumCast};
 #[cfg(feature = "rand")]
 use rand::{
@@ -91,7 +94,7 @@ pub struct Vector4<S> {
 
 // Utility macro for generating associated functions for the vectors
 macro_rules! impl_vector {
-    ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {
+    ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident $(, $packed_cast:ident)?) => {
         impl<S> $VectorN<S> {
             /// Construct a new vector, using the provided values.
             #[inline]
@@ -129,6 +132,12 @@ macro_rules! impl_vector {
             /// Component-wise casting to another type.
             #[inline]
             pub fn cast<T: NumCast>(&self) -> Option<$VectorN<T>> {
+                $(
+                    #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+                    if let Some(result) = $packed_cast(self.as_ref()) {
+                        return result;
+                    }
+                )?
                 $(
                     let $field = match NumCast::from(self.$field) {
                         Some(field) => field,
@@ -373,7 +382,35 @@ macro_rules! impl_scalar_ops {
 impl_vector!(Vector1 { x }, 1, vec1);
 impl_vector!(Vector2 { x, y }, 2, vec2);
 impl_vector!(Vector3 { x, y, z }, 3, vec3);
-impl_vector!(Vector4 { x, y, z, w }, 4, vec4);
+impl_vector!(Vector4 { x, y, z, w }, 4, vec4, cast_rgba8);
+
+// The outer Option indicates whether this source and destination pair uses the packed path.
+#[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+#[inline]
+fn cast_rgba8<S, T>(pixel: &[S; 4]) -> Option<Option<Vector4<T>>> {
+    use self::try_specialize::Specialization;
+    use std::arch::x86_64::*;
+
+    let source = Specialization::<[S; 4], [f32; 4]>::try_new()?;
+    let destination = Specialization::<[T; 4], [u8; 4]>::try_new()?;
+    let pixel = source.specialize_ref(pixel);
+    // SAFETY: SSE2 is enabled and pixel contains four initialized f32 lanes.
+    let packed = unsafe {
+        let lanes = _mm_loadu_ps(pixel.as_ptr());
+        // Truncation to u8 accepts exactly (-1, 256), excluding NaN.
+        let valid = _mm_and_ps(
+            _mm_cmpgt_ps(lanes, _mm_set1_ps(-1.0)),
+            _mm_cmplt_ps(lanes, _mm_set1_ps(256.0)),
+        );
+        if _mm_movemask_ps(valid) != 0b1111 {
+            return Some(None);
+        }
+        let words = _mm_packs_epi32(_mm_cvttps_epi32(lanes), _mm_setzero_si128());
+        _mm_cvtsi128_si32(_mm_packus_epi16(words, _mm_setzero_si128()))
+    };
+    let [x, y, z, w] = destination.rev().specialize(packed.to_le_bytes());
+    Some(Some(Vector4::new(x, y, z, w)))
+}
 
 impl_fixed_array_conversions!(Vector1<S> { x: 0 }, 1);
 impl_fixed_array_conversions!(Vector2<S> { x: 0, y: 1 }, 2);

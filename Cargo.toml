@@ -10,6 +10,7 @@ documentation = "https://docs.rs/cgmath"
 homepage = "https://github.com/rustgd/cgmath"
 repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
+autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 
@@ -31,5 +32,12 @@ serde = { version = "1.0", features = ["serde_derive"], optional = true }
 #simd = { version = "0.2", optional = true }
 bytemuck = { version = "1.0", optional = true }
 
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+try-specialize = "0.1.2"
+
 [dev-dependencies]
 serde_json = "1.0"
+
+[[bench]]
+name = "rgba_cast"
+harness = false
