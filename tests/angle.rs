@@ -50,6 +50,55 @@ fn test_normalize_signed() {
 }
 
 #[test]
+fn test_normalize_signed_matches_remainder() {
+    macro_rules! check {
+        ($angle:ident, $float:ty) => {{
+            let turn = $angle::<$float>::full_turn().0;
+            let half = turn / 2.0;
+            let boundaries = [-2.0 * turn, -turn, -half, half, turn, 2.0 * turn];
+            let adjacent = boundaries.iter().flat_map(|&edge| {
+                let bits = edge.to_bits();
+                [
+                    <$float>::from_bits(bits - 1),
+                    edge,
+                    <$float>::from_bits(bits + 1),
+                ]
+            });
+            for value in adjacent.chain([
+                0.0,
+                -0.0,
+                <$float>::from_bits(1),
+                -<$float>::from_bits(1),
+                <$float>::MIN,
+                <$float>::MAX,
+                <$float>::NEG_INFINITY,
+                <$float>::INFINITY,
+                <$float>::NAN,
+            ]) {
+                let mut expected = value % turn;
+                if expected < 0.0 {
+                    expected += turn;
+                }
+                if expected > half {
+                    expected -= turn;
+                }
+                let actual = $angle(value).normalize_signed().0;
+                if expected.is_nan() {
+                    assert!(actual.is_nan(), "{:?}", value);
+                } else {
+                    assert_eq!(actual.to_bits(), expected.to_bits(), "{:?}", value);
+                }
+            }
+        }};
+    }
+
+    check!(Deg, f32);
+    check!(Deg, f64);
+    check!(Rad, f32);
+    check!(Rad, f64);
+}
+
+#[test]
 fn test_conv() {
     let angle: Rad<_> = Deg(-5.0f64).into();
     let angle: Deg<_> = angle.into();

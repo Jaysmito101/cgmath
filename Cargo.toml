@@ -13,6 +13,7 @@ readme = "README.md"
 autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
+autobenches = true
 
 [lib]
 name = "cgmath"
@@ -39,11 +40,16 @@ typeid = "1.0"
 rand = { version = "0.8", features = ["small_rng"], optional = true }
 serde = { version = "1.0", features = ["serde_derive"], optional = true }
 bytemuck = { version = "1.0", optional = true }
+typeid = "1.0"
 try-specialize = { version = "0.1.2", default-features = false, optional = true }
 wide = { version = "1.7.1", optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
+
+[[bench]]
+name = "phase_wrapping"
+harness = false
 
 [[bench]]
 name = "simd"

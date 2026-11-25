@@ -15,6 +15,9 @@
 
 //! Angle units for type-safe, self-documenting code.
 
+extern crate typeid;
+
+use std::any::TypeId;
 use std::f64;
 use std::fmt;
 use std::iter;
@@ -68,6 +71,13 @@ where
     }
 }
 
+// Keep the floating-point remainder out of the inlined path.
+#[cold]
+#[inline(never)]
+fn normalize_signed_with_remainder<A: Angle>(angle: A) -> A {
+    wrap_signed(angle.normalize())
+}
+
 macro_rules! impl_angle {
     ($Angle:ident, $fmt:expr, $full_turn:expr, $hi:expr) => {
         impl<S: BaseFloat> Zero for $Angle<S> {
@@ -100,6 +110,27 @@ macro_rules! impl_angle {
             type Unitless = S;
 
             #[inline] fn full_turn() -> $Angle<S> { $Angle(cast($full_turn).unwrap()) }
+
+            #[inline]
+            fn normalize_signed(self) -> Self {
+                let scalar = typeid::of::<S>();
+                if scalar != TypeId::of::<f32>() && scalar != TypeId::of::<f64>() {
+                    return wrap_signed(self.normalize());
+                }
+                let turn = Self::full_turn();
+                if !(self > -turn && self < turn + turn) {
+                    return normalize_signed_with_remainder(self);
+                }
+                let rem = if self < Self::zero() {
+                    self + turn
+                } else if self >= turn {
+                    // Within a factor of two, subtraction is exact.
+                    self - turn
+                } else {
+                    self
+                };
+                wrap_signed(rem)
+            }
 
             #[inline] fn sin(self) -> S { Rad::from(self).0.sin() }
             #[inline] fn cos(self) -> S { Rad::from(self).0.cos() }
