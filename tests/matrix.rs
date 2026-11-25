@@ -368,6 +368,43 @@ pub mod matrix3 {
     }
 
     #[test]
+    fn test_matrix3_products_preserve_row_dot_rounding() {
+        let lhs = Matrix3::from_cols(
+            vec3(1e20_f32, -0.0, f32::INFINITY),
+            vec3(-1e20, -0.0, 2.0),
+            vec3(1.0, -0.0, 3.0),
+        );
+        let rhs = Matrix3::from_cols(
+            vec3(1.0, 1.0, 1.0),
+            vec3(0.0, -1.0, 1.0),
+            vec3(0.5, 2.0, 3.0),
+        );
+        let row_dots = |v| vec3(lhs.row(0).dot(v), lhs.row(1).dot(v), lhs.row(2).dot(v));
+        let check = |actual: Vector3<f32>, expected: Vector3<f32>| {
+            let actual: [f32; 3] = actual.into();
+            let expected: [f32; 3] = expected.into();
+            for (&a, &b) in actual.iter().zip(expected.iter()) {
+                if b.is_nan() {
+                    assert!(a.is_nan());
+                } else {
+                    assert_eq!(a.to_bits(), b.to_bits());
+                }
+            }
+        };
+
+        for &v in &[rhs.x, rhs.y, rhs.z] {
+            for &result in &[lhs * v, &lhs * v, lhs * &v, &lhs * &v] {
+                check(result, row_dots(v));
+            }
+        }
+        for result in &[lhs * rhs, &lhs * rhs, lhs * &rhs, &lhs * &rhs] {
+            check(result.x, row_dots(rhs.x));
+            check(result.y, row_dots(rhs.y));
+            check(result.z, row_dots(rhs.z));
+        }
+    }
+
+    #[test]
     fn test_sum_matrix() {
         assert_eq!(A + B + C + D, [A, B, C, D].iter().sum());
         assert_eq!(A + B + C + D, [A, B, C, D].iter().cloned().sum());

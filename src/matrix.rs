@@ -1304,7 +1304,17 @@ macro_rules! impl_mv_operator {
 }
 
 impl_mv_operator!(Matrix2, Vector2 { x: 0, y: 1 });
-impl_mv_operator!(Matrix3, Vector3 { x: 0, y: 1, z: 2 });
+
+impl_operator!(<S: BaseFloat> Mul<Vector3<S> > for Matrix3<S> {
+    fn mul(matrix, vector) -> Vector3<S> {
+        // Work on contiguous columns and keep the same sum order as Vector3::dot.
+        matrix.x * vector.x + (matrix.y * vector.y + matrix.z * vector.z)
+    }
+});
+
+#[cfg(not(feature = "simd"))]
+#[cfg_attr(rustfmt, rustfmt_skip)]
+impl_mv_operator!(Matrix4, Vector4 { x: 0, y: 1, z: 2, w: 3 });
 
 impl_operator!(<S: BaseFloat> Mul<Vector4<S> > for Matrix4<S> {
     fn mul(matrix, vector) -> Vector4<S> {{
@@ -1331,9 +1341,7 @@ impl_operator!(<S: BaseFloat> Mul<Matrix2<S> > for Matrix2<S> {
 
 impl_operator!(<S: BaseFloat> Mul<Matrix3<S> > for Matrix3<S> {
     fn mul(lhs, rhs) -> Matrix3<S> {
-        Matrix3::new(lhs.row(0).dot(rhs[0]), lhs.row(1).dot(rhs[0]), lhs.row(2).dot(rhs[0]),
-                     lhs.row(0).dot(rhs[1]), lhs.row(1).dot(rhs[1]), lhs.row(2).dot(rhs[1]),
-                     lhs.row(0).dot(rhs[2]), lhs.row(1).dot(rhs[2]), lhs.row(2).dot(rhs[2]))
+        Matrix3::from_cols(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z)
     }
 });
 

@@ -17,6 +17,10 @@ keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 [lib]
 name = "cgmath"
 
+[[bench]]
+name = "matrix3_color"
+harness = false
+
 [features]
 simd = ["dep:try-specialize", "dep:wide"]
 unstable = []
