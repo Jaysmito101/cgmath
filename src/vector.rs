@@ -184,6 +184,11 @@ macro_rules! impl_vector {
 
             #[inline]
             fn is_zero(&self) -> bool {
+                #[cfg(feature = "simd")]
+                if let Some(lanes) = ::try_specialize::Specialization::<[S; $n], [f32; 4]>::try_new() {
+                    let values = ::wide::f32x4::new(lanes.specialize([$(self.$field),+]));
+                    return values.simd_eq(::wide::f32x4::ZERO).all();
+                }
                 *self == $VectorN::zero()
             }
         }

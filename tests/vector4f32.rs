@@ -16,8 +16,22 @@
 extern crate approx;
 extern crate cgmath;
 
+use cgmath::num_traits::Zero;
 use cgmath::*;
 use std::f32;
+
+#[test]
+fn test_is_zero() {
+    let zeros = vec4(0.0f32, -0.0, -0.0, 0.0);
+    assert!(zeros.is_zero());
+    for lane in 0..4 {
+        for &value in &[1.0, -1.0, f32::from_bits(1), f32::INFINITY, f32::NAN] {
+            let mut pixel = zeros;
+            pixel[lane] = value;
+            assert!(!pixel.is_zero());
+        }
+    }
+}
 
 #[test]
 fn test_constructor() {

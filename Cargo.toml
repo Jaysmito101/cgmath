@@ -13,6 +13,10 @@ readme = "README.md"
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 
+[[bench]]
+name = "rgba_zero"
+harness = false
+
 [lib]
 name = "cgmath"
 
