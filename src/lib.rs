@@ -60,6 +60,8 @@ extern crate bytemuck;
 pub extern crate mint;
 
 pub extern crate num_traits;
+extern crate typeid;
+
 #[cfg(feature = "rand")]
 extern crate rand;
 
