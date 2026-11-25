@@ -47,6 +47,31 @@ fn test_from_value() {
     );
 }
 
+#[test]
+fn test_vector4_finiteness_in_each_lane() {
+    macro_rules! check_lanes {
+        ($scalar:ty) => {{
+            let finite = Vector4::new(
+                -0.0,
+                <$scalar>::from_bits(1),
+                <$scalar>::MAX,
+                -<$scalar>::MAX,
+            );
+            assert!(finite.is_finite());
+            for nonfinite in [<$scalar>::NAN, <$scalar>::INFINITY, <$scalar>::NEG_INFINITY] {
+                for lane in 0..4 {
+                    let mut pixel = finite;
+                    pixel[lane] = nonfinite;
+                    assert!(!pixel.is_finite(), "unexpected finite pixel: {:?}", pixel);
+                }
+            }
+        }};
+    }
+
+    check_lanes!(f32);
+    check_lanes!(f64);
+}
+
 macro_rules! impl_test_add {
     ($VectorN:ident { $($field:ident),+ }, $s:expr, $v:expr) => (
         // vector + vector ops

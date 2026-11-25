@@ -19,10 +19,13 @@ use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
+use std::any::TypeId;
 use std::fmt;
 use std::iter;
 use std::mem;
 use std::ops::*;
+
+use typeid;
 
 use structure::*;
 
@@ -171,8 +174,18 @@ macro_rules! impl_vector {
                 fold_array!(mul, $(self.$field),+ )
             }
 
+            #[inline]
             fn is_finite(&self) -> bool where S: Float {
-                $(self.$field.is_finite())&&+
+                // Let the compiler evaluate primitive lanes in parallel while keeping
+                // short-circuit evaluation for user-defined Float implementations.
+                if $n == 4
+                    && (typeid::of::<S>() == TypeId::of::<f32>()
+                        || typeid::of::<S>() == TypeId::of::<f64>())
+                {
+                    $(self.$field.is_finite()) &+
+                } else {
+                    $(self.$field.is_finite()) &&+
+                }
             }
         }
 
