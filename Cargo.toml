@@ -10,8 +10,13 @@ documentation = "https://docs.rs/cgmath"
 homepage = "https://github.com/rustgd/cgmath"
 repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
+autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
+
+[[bench]]
+name = "orientation_product"
+harness = false
 
 [lib]
 name = "cgmath"
