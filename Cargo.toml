@@ -10,11 +10,16 @@ documentation = "https://docs.rs/cgmath"
 homepage = "https://github.com/rustgd/cgmath"
 repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
+autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 
 [lib]
 name = "cgmath"
+
+[[bench]]
+name = "matrix3_color"
+harness = false
 
 [features]
 unstable = []
