@@ -740,6 +740,7 @@ impl<S: BaseFloat> SquareMatrix for Matrix3<S> {
         Vector3::new(self[0][0], self[1][1], self[2][2])
     }
 
+    #[inline]
     fn invert(&self) -> Option<Matrix3<S>> {
         let det = self.determinant();
         if det == S::zero() {
