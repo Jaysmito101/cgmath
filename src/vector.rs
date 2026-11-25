@@ -503,13 +503,17 @@ impl<S: BaseNum> Vector4<S> {
     /// Create a `Vector3`, dropping the nth element.
     #[inline]
     pub fn truncate_n(&self, n: isize) -> Vector3<S> {
-        match n {
-            0 => Vector3::new(self.y, self.z, self.w),
-            1 => Vector3::new(self.x, self.z, self.w),
-            2 => Vector3::new(self.x, self.y, self.w),
-            3 => Vector3::new(self.x, self.y, self.z),
-            _ => panic!("{:?} is out of range", n),
+        if n as usize >= 4 {
+            panic!("{:?} is out of range", n);
         }
+
+        // Advance each source index if the removed lane is at or before it.
+        let lanes: &[S; 4] = self.as_ref();
+        Vector3::new(
+            lanes[(n == 0) as usize],
+            lanes[1 + (n <= 1) as usize],
+            lanes[2 + (n <= 2) as usize],
+        )
     }
 
     impl_swizzle_functions!(Vector1, Vector2, Vector3, Vector4, S, xyzw);

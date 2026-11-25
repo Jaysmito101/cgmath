@@ -47,6 +47,31 @@ fn test_from_value() {
     );
 }
 
+#[test]
+fn truncate_n_preserves_channel_bits() {
+    let bits = vec4(0x8000_0000, 0x7fc0_1234, 0xff80_0000, 0x0000_0001);
+    let pixel = bits.map(f32::from_bits);
+    let expected = [
+        vec3(bits.y, bits.z, bits.w),
+        vec3(bits.x, bits.z, bits.w),
+        vec3(bits.x, bits.y, bits.w),
+        vec3(bits.x, bits.y, bits.z),
+    ];
+    for (channel, expected) in expected.iter().enumerate() {
+        assert_eq!(pixel.truncate_n(channel as isize).map(f32::to_bits), *expected);
+    }
+}
+
+#[test]
+fn truncate_n_rejects_out_of_range_channels() {
+    let pixel = vec4(1u8, 2, 3, 4);
+    for &channel in &[isize::MIN, -1, 4, isize::MAX] {
+        let panic = std::panic::catch_unwind(|| pixel.truncate_n(channel)).unwrap_err();
+        let message = format!("{} is out of range", channel);
+        assert_eq!(panic.downcast_ref::<String>(), Some(&message));
+    }
+}
+
 macro_rules! impl_test_add {
     ($VectorN:ident { $($field:ident),+ }, $s:expr, $v:expr) => (
         // vector + vector ops
