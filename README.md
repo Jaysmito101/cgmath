@@ -59,11 +59,14 @@ Vector2 { x: 3.0, y: 2.0 }
 ```
 ### SIMD optimizations
 
-The current SIMD support depends on the deprecated "simd" package as well
-as the unstable "specialization" feature. To build this code, a pre-1.33 nightly
-build of Rust is required, e.g. 2019-01-01-nightly. Though the code is not
-useful in its present form, it has some worth preserving as starting point
-for a future migration (see https://github.com/rustgd/cgmath/issues/490).
+Enable the optional `simd` feature with `--features simd`. It uses
+[`wide`](https://docs.rs/wide/1.7.1/wide/) for `Matrix4<f32> * Vector4<f32>`
+and the `Vector4<f32>` methods `sqrt_element_wide`, `recip_element_wide`,
+and `rsqrt_element_wide`. The feature builds on stable Rust 1.89 or newer.
+`wide` selects SIMD at compile time and supplies a scalar fallback.
+
+Run `cargo bench --bench simd` and `cargo bench --bench simd --features simd`
+to compare two RGBA image-processing kernels on stable Rust.
 
 ## Limitations
 
