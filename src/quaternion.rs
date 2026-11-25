@@ -112,6 +112,11 @@ impl<S: BaseFloat> Quaternion<S> {
             other = -other;
         }
 
+        self.nlerp_aligned(other, amount)
+    }
+
+    #[inline]
+    fn nlerp_aligned(self, other: Quaternion<S>, amount: S) -> Quaternion<S> {
         (self * (S::one() - amount) + other * amount).normalize()
     }
 
@@ -132,6 +137,7 @@ impl<S: BaseFloat> Quaternion<S> {
     ///
     /// - [Understanding Slerp, Then Not Using It](http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/)
     /// - [Arcsynthesis OpenGL tutorial](https://www.roiatalla.com/public/arcsynthesis/html/Positioning/Tut08%20Interpolation.html)
+    #[inline]
     pub fn slerp(self, mut other: Quaternion<S>, amount: S) -> Quaternion<S> {
         let mut dot = self.dot(other);
         let dot_threshold: S = cast(0.9995f64).unwrap();
@@ -141,9 +147,9 @@ impl<S: BaseFloat> Quaternion<S> {
             dot = -dot;
         }
 
-        // if quaternions are close together use `nlerp`
+        // The sign check above already aligned the close pair for linear interpolation.
         if dot > dot_threshold {
-            self.nlerp(other, amount)
+            self.nlerp_aligned(other, amount)
         } else {
             // stay within the domain of acos()
             let robust_dot = dot.min(S::one()).max(-S::one());

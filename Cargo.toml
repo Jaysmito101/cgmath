@@ -12,6 +12,11 @@ repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
+autobenches = true
+
+[[bench]]
+name = "camera_interpolation"
+harness = false
 
 [lib]
 name = "cgmath"

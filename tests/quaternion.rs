@@ -16,6 +16,34 @@
 extern crate approx;
 extern crate cgmath;
 
+#[test]
+fn slerp_close_rotations_match_nlerp_bit_for_bit() {
+    use cgmath::{InnerSpace, Quaternion, Rad, Rotation3};
+
+    macro_rules! check {
+        ($scalar:ty) => {{
+            let a = Quaternion::from_angle_y(Rad(0.73 as $scalar));
+            for angle in [0.0, 0.02, 0.06] {
+                let b = a * Quaternion::from_angle_x(Rad(angle));
+                for &b in &[b, -b] {
+                    assert!(a.dot(b).abs() > 0.9995);
+                    for &amount in &[-0.25, 0.0, 0.35, 1.0, 1.25] {
+                        let actual: [$scalar; 4] = a.slerp(b, amount).into();
+                        let expected: [$scalar; 4] = a.nlerp(b, amount).into();
+                        assert_eq!(
+                            actual.map(<$scalar>::to_bits),
+                            expected.map(<$scalar>::to_bits)
+                        );
+                    }
+                }
+            }
+        }};
+    }
+
+    check!(f32);
+    check!(f64);
+}
+
 macro_rules! impl_test_mul {
     ($s:expr, $v:expr) => {
         // point * scalar ops
