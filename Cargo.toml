@@ -10,6 +10,7 @@ documentation = "https://docs.rs/cgmath"
 homepage = "https://github.com/rustgd/cgmath"
 repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
+autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 
@@ -19,6 +20,10 @@ name = "cgmath"
 [features]
 unstable = []
 swizzle = []
+
+[[bench]]
+name = "image_warp"
+harness = false
 
 [dependencies]
 approx = "0.5"
