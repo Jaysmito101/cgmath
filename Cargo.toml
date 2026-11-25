@@ -10,11 +10,16 @@ documentation = "https://docs.rs/cgmath"
 homepage = "https://github.com/rustgd/cgmath"
 repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
+autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 
 [lib]
 name = "cgmath"
+
+[[bench]]
+name = "rgba_finiteness"
+harness = false
 
 [features]
 unstable = []
@@ -24,6 +29,7 @@ swizzle = []
 approx = "0.5"
 mint = { version = "0.5.8", optional = true }
 num-traits = "0.2"
+typeid = "1.0"
 # small_rng used only for benchmarks
 rand = { version = "0.8", features = ["small_rng"], optional = true }
 serde = { version = "1.0", features = ["serde_derive"], optional = true }
