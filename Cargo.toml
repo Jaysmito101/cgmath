@@ -10,6 +10,7 @@ documentation = "https://docs.rs/cgmath"
 homepage = "https://github.com/rustgd/cgmath"
 repository = "https://github.com/rustgd/cgmath"
 readme = "README.md"
+autobenches = true
 
 keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 
@@ -17,6 +18,7 @@ keywords = ["gamedev", "math", "matrix", "vector", "quaternion"]
 name = "cgmath"
 
 [features]
+simd = ["dep:try-specialize", "dep:wide"]
 unstable = []
 swizzle = []
 
@@ -27,9 +29,13 @@ num-traits = "0.2"
 # small_rng used only for benchmarks
 rand = { version = "0.8", features = ["small_rng"], optional = true }
 serde = { version = "1.0", features = ["serde_derive"], optional = true }
-# works only in rust toolchain up to 1.32, disabled indefinitely
-#simd = { version = "0.2", optional = true }
 bytemuck = { version = "1.0", optional = true }
+try-specialize = { version = "0.1.2", default-features = false, optional = true }
+wide = { version = "1.7.1", optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
+
+[[bench]]
+name = "simd"
+harness = false

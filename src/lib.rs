@@ -50,8 +50,6 @@
 //! use cgmath::prelude::*;
 //! ```
 
-#![cfg_attr(feature = "simd", feature(specialization))]
-
 #[macro_use]
 extern crate approx;
 
@@ -70,7 +68,9 @@ extern crate rand;
 extern crate serde;
 
 #[cfg(feature = "simd")]
-extern crate simd;
+extern crate try_specialize;
+#[cfg(feature = "simd")]
+extern crate wide;
 
 // Re-exports
 
@@ -104,12 +104,9 @@ mod matrix;
 mod quaternion;
 
 #[cfg(feature = "simd")]
-mod quaternion_simd;
+mod simd;
 
 mod vector;
-
-#[cfg(feature = "simd")]
-mod vector_simd;
 
 mod angle;
 mod euler;

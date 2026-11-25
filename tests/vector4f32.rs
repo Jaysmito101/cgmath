@@ -193,6 +193,11 @@ mod test_magnitude {
                 Vector4::new(1f32, 1f32 / 2f32, 1f32 / 3f32, 1f32 / 4f32),
                 max_relative = 0.005f32
             );
+            let edge = vec4(-0.0f32, f32::INFINITY, -1.0, f32::NAN);
+            let root = edge.sqrt_element_wide();
+            assert_eq!(root.x.to_bits(), (-0.0f32).to_bits());
+            assert_eq!(root.y, f32::INFINITY);
+            assert!(root.z.is_nan() && root.w.is_nan());
         }
     }
 }
@@ -236,4 +241,27 @@ fn test_cast() {
         Vector4::new(13.5f32, -4.6, -8.3, 2.41).cast().unwrap(),
         Vector4::new(13.5f32, -4.6, -8.3, 2.41)
     );
+}
+
+#[test]
+fn test_color_matrix_matches_row_dot_products() {
+    let matrix = Matrix4::from_cols(
+        vec4(1e20f32, 0.125, 0.25, -0.0),
+        vec4(-1e20, 0.75, 0.125, -0.0),
+        vec4(3.0, 0.125, 0.625, -0.0),
+        vec4(1.0, 0.0, 0.0, -0.0),
+    );
+    for pixel in [vec4(1.0, 1.0, 1.0, 1.0), vec4(0.2, 0.4, 0.8, 1.0)] {
+        let expected = vec4(
+            matrix.row(0).dot(pixel),
+            matrix.row(1).dot(pixel),
+            matrix.row(2).dot(pixel),
+            matrix.row(3).dot(pixel),
+        )
+        .map(f32::to_bits);
+        assert_eq!((matrix * pixel).map(f32::to_bits), expected);
+        assert_eq!((&matrix * pixel).map(f32::to_bits), expected);
+        assert_eq!((matrix * &pixel).map(f32::to_bits), expected);
+        assert_eq!((&matrix * &pixel).map(f32::to_bits), expected);
+    }
 }

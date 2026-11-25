@@ -860,12 +860,6 @@ impl<S: BaseFloat> SquareMatrix for Matrix4<S> {
         Vector4::new(self[0][0], self[1][1], self[2][2], self[3][3])
     }
 
-    // The new implementation results in negative optimization when used
-    // without SIMD. so we opt them in with configuration.
-    // A better option would be using specialization. But currently somewhat
-    // specialization is too buggy, and it won't apply here. I'm getting
-    // weird error msgs. Help wanted.
-    #[cfg(not(feature = "simd"))]
     fn invert(&self) -> Option<Matrix4<S>> {
         let det = self.determinant();
         if det == S::zero() {
@@ -904,22 +898,6 @@ impl<S: BaseFloat> SquareMatrix for Matrix4<S> {
                 cf(2, 0), cf(2, 1), cf(2, 2), cf(2, 3),
                 cf(3, 0), cf(3, 1), cf(3, 2), cf(3, 3),
             ))
-        }
-    }
-    #[cfg(feature = "simd")]
-    fn invert(&self) -> Option<Matrix4<S>> {
-        let tmp0 = unsafe { det_sub_proc_unsafe(self, 1, 2, 3) };
-        let det = tmp0.dot(Vector4::new(self[0][0], self[1][0], self[2][0], self[3][0]));
-
-        if det == S::zero() {
-            None
-        } else {
-            let inv_det = S::one() / det;
-            let tmp0 = tmp0 * inv_det;
-            let tmp1 = unsafe { det_sub_proc_unsafe(self, 0, 3, 2) * inv_det };
-            let tmp2 = unsafe { det_sub_proc_unsafe(self, 0, 1, 3) * inv_det };
-            let tmp3 = unsafe { det_sub_proc_unsafe(self, 0, 2, 1) * inv_det };
-            Some(Matrix4::from_cols(tmp0, tmp1, tmp2, tmp3))
         }
     }
 
@@ -1319,15 +1297,21 @@ macro_rules! impl_mv_operator {
 
 impl_mv_operator!(Matrix2, Vector2 { x: 0, y: 1 });
 impl_mv_operator!(Matrix3, Vector3 { x: 0, y: 1, z: 2 });
-#[cfg(not(feature = "simd"))]
-#[cfg_attr(rustfmt, rustfmt_skip)]
-impl_mv_operator!(Matrix4, Vector4 { x: 0, y: 1, z: 2, w: 3 });
 
-#[cfg(feature = "simd")]
 impl_operator!(<S: BaseFloat> Mul<Vector4<S> > for Matrix4<S> {
-    fn mul(matrix, vector) -> Vector4<S> {
-        matrix[0] * vector[0] + matrix[1] * vector[1] + matrix[2] * vector[2] + matrix[3] * vector[3]
-    }
+    fn mul(matrix, vector) -> Vector4<S> {{
+        #[cfg(feature = "simd")]
+        if let Some(result) = ::simd::mul_matrix4_vector4(&matrix, &vector) {
+            return result;
+        }
+
+        Vector4::new(
+            matrix.row(0).dot(vector.clone()),
+            matrix.row(1).dot(vector.clone()),
+            matrix.row(2).dot(vector.clone()),
+            matrix.row(3).dot(vector.clone()),
+        )
+    }}
 });
 
 impl_operator!(<S: BaseFloat> Mul<Matrix2<S> > for Matrix2<S> {
