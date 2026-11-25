@@ -626,12 +626,7 @@ where
     /// Return the angle, normalized to the range `[-turn_div_2, turn_div_2]`.
     #[inline]
     fn normalize_signed(self) -> Self {
-        let rem = self.normalize();
-        if Self::turn_div_2() < rem {
-            rem - Self::full_turn()
-        } else {
-            rem
-        }
+        wrap_signed(self.normalize())
     }
 
     /// Return the angle rotated by half a turn.
@@ -805,4 +800,13 @@ where
     fn atan(ratio: Self::Unitless) -> Self;
 
     fn atan2(a: Self::Unitless, b: Self::Unitless) -> Self;
+}
+
+#[inline]
+pub(crate) fn wrap_signed<A: Angle>(rem: A) -> A {
+    if A::turn_div_2() < rem {
+        rem - A::full_turn()
+    } else {
+        rem
+    }
 }
